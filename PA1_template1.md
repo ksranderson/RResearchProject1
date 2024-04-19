@@ -7,6 +7,8 @@ output:
     keep_md: TRUE
 ---
 
+
+
 **Este documento contiene el trabajo completado para la tarea de pares \# 1 para la clase de Investigación Reproducible de Coursera.**
 
 ###Carga y preprocesamiento de datos
@@ -91,7 +93,8 @@ library(data.table)
 
 ```r
 dat_tbl = data.table(dat)
-dat_tbl_summary = dat_tbl[, list(total_steps = sum(steps, na.rm = T)),  by = date]
+dat_tbl_summary = dat_tbl[, list(total_steps = sum(steps, na.rm = T)), 
+                          by = date]
 ```
 
 **Realice el histograma e informe sobre la media y la mediana:**

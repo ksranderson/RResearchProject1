@@ -418,7 +418,8 @@ cada día, pero antes resumiré los datos por días:</p>
 ## 
 ##     between, first, last</code></pre>
 <pre class="r"><code>dat_tbl = data.table(dat)
-dat_tbl_summary = dat_tbl[, list(total_steps = sum(steps, na.rm = T)),  by = date]</code></pre>
+dat_tbl_summary = dat_tbl[, list(total_steps = sum(steps, na.rm = T)), 
+                          by = date]</code></pre>
 <p><strong>Realice el histograma e informe sobre la media y la
 mediana:</strong></p>
 <p>El histograma que se muestra a continuación aborda los siguientes
