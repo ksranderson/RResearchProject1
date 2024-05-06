@@ -1,0 +1,217 @@
+---
+title: "RRWeek2"
+author: "Reuben Anderson"
+date: "2024-04-19"
+output: html_document
+---
+
+#Set global markdown variable
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Block1:Load and process the data
+```{r getdata}
+#Get the dataset from HTML URL weblink using R, fail on government computer, 
+#no access granted for dest. file location
+#location <- "C:/directory"
+#dataset <- download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", location )
+
+#download dataset in web browser, unzip, read csv, put into var
+dataset <- read.csv(unzip("C:/Users/Reuben.Anderson/Downloads/repdata_data_activity.zip"))
+
+
+```
+
+#Q1:What is mean total number of steps taken per day?
+```{r}
+
+#group dataset by date and omit NA values, convert character(string) to Date
+library(dplyr)
+process1 <- na.omit(dataset %>% group_by(date) %>% summarise(sum(steps)))
+process1$date <- as.Date(process1$date)
+#mutate new var with Date as numeric to make histogram
+process1 <- process1 %>% mutate(asDate = as.numeric(process1$date))
+#histogram of total steps per day
+
+#1st try
+#hist(process1$asDate, col = "blue", xlab = "Date", ylab = "Steps", main = "Total steps by Date")
+#2nd try 
+#current, x-axis with char Date flipped to perp., main, x & y axis custom labels
+#hist(process1$asDate, col = "blue", xaxt = "n", xlab = "Date", ylab = "Steps", main = "Total steps by Date", breaks = 53)
+#axis(1, process1$asDate, labels = process1$date, padj = 1, cex.axis = 0.5, las = 2)
+#names(process1)[2] <- "Steps" #get var name changed
+#ggplot option below
+#ggplot(data.frame(distance), aes(x = distance)) + 
+#       geom_histogram(color = "gray", fill = "white")
+
+suppressWarnings({
+#histogram steps per day frequency over October & November
+names(process1)[2] <- "Steps" #get var name changed
+hist(process1$Steps, col = "red", xlab = "Step count per day", ylab = "Frequency of Step counts", main = "Step count per day Frequency OCt/Nov", breaks = 53)
+#abline(v = mean(process1$Steps), col = "red", lwd = 2)
+#text(x= mean(process1$Steps)+400, y=4.5, srt=90, 'mean steps per day')
+m <- mean(process1$Steps)
+md <- median(process1$Steps)
+text(x=15000, y=5.5, paste0("Median = ", round(md)))
+text(x=15000, y=6.5, paste0("Mean = ", round(m)))
+})
+```
+
+#Q2:What is the average daily activity pattern?
+```{r}
+#time series plot(type=1) of 5 minute interval (x-axis), avg steps across all days (y-axis)
+#Which 5 minute interval had max. steps
+
+#load packages:
+library(ggplot2)
+library(ggpubr)
+
+#get var of distinct intervals
+test <- dataset %>% distinct(interval)
+
+#get vector of sum(steps) for each interval for all days' steps at interval
+#Could not find dplyr way of doing this!!!  Ugly but works.
+i <- as.integer(1)
+n <- nrow(test) #288
+v <- vector() #initiate vector outside of loop
+
+for (i in 1:n) {
+x <- test[i,]
+temp <- na.omit(dataset) %>% filter(interval == x) 
+d <- sum(temp$steps) #interval total days' steps
+v <- c(v, d)
+}
+
+#add vector sum(steps) into test dataframe
+test <- test %>% mutate(steps = v)
+
+#add average steps per day
+test <- test %>% mutate(avg_steps = steps/53)
+
+#find max steps
+m <- max(test$steps) #max steps number
+a <- apply(test, 2, function(x) which(x == m)) #gives all 3 vars at steps = m
+r <- a[[2]] #gives record number in dataframe 
+k <- test$interval[r] #max 5 min. interval = 835 max total steps
+rr<-  test$avg_steps[r] #max 5 min. interval = 206 average steps per day
+
+
+suppressWarnings({
+#plot interval ~ v plut interval ~ avg(v) using 53 days to avg.
+#par(mfrow = c(1, 2)) #only for plot() function
+p1 <- ggplot(test, aes(x=interval, y=steps)) + geom_line(color = "green", size = 1) + labs(title = "Total Steps at Time Intervals", x = "daily time intervals", y = "total steps at interval") + geom_vline(xintercept= k, color = "red") + annotate("text", x=1600, y=11000, label="<- Max 5 min. interval 835", angle=0)
+p2 <- ggplot(test, aes(x=interval, y=avg_steps)) + geom_line(color = "green", size = 1) + labs(title = "Average Daily Steps at Time Intervals", x = "daily time intervals", y = "daily average steps at interval")
+ggarrange(p1, p2, labels = c("A", "B"), ncol = 2)
+})
+
+```
+
+#Q3 -> Imputing missing values, multiquestion ask see hashes A, B, C, D:
+```{r}
+#A -> Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NA, NAs)
+na_DF <- dataset[is.na(dataset$steps),]
+na_rows <- nrow(na_DF) #2304 NA rows
+
+#B -> Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+#Fill in the missing values with mean(average) daily steps for that 5 minute interval
+
+#C -> Create a new dataset that is equal to the original dataset but with the missing data filled in.
+#need code
+#So, IF dataset$steps[x] = NA, set dataset$steps[x] = test$avg_steps where interval[x] = dataset$interval at x  
+#Copy then step through rows of dataset dataframe, test for NA, make changes
+nonavalue <- dataset #copy dataset dataframe to make new dataframe with NA values changed
+i <- as.integer(1)
+n <- nrow(nonavalue) #17568 rows
+#'dataset' dataframe variable to be changed outside for loop
+for (i in 1:n) {  #loop through rows in 'nonavalue' dataframe
+l <- is.na(nonavalue$steps[i]) #test where x=i(row i) if NA, returns TRUE/FALSE
+if(l == TRUE){  #test logical result saved in var 'l'
+  check <- nonavalue[i,][[3]] #get interval number
+  nonavalue$steps[i] <- test[test$interval == check, ][[3]] #make switch of NA
+  }
+}
+
+#D -> #Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+#have to get total steps into nonavalue dataframe
+nonavalue1 <- nonavalue %>% group_by(date) %>% summarise(sum(steps))
+nonavalue1$date <- as.Date(nonavalue1$date)
+nonavalue1 <- nonavalue1 %>% mutate(asDate = as.numeric(nonavalue1$date))
+names(nonavalue1)[2] <- "steps" #get var name changed
+#histogram
+hist(nonavalue1$steps, col = "red", xlab = "Step count per day", ylab = "Frequency of Step counts", main = "Step count per day Frequency OCt/Nov with NA imputed", breaks = 53)
+#abline(v = mean(process1$Steps), col = "red", lwd = 2)
+#text(x= mean(process1$Steps)+400, y=4.5, srt=90, 'mean steps per day')
+m <- mean(nonavalue1$steps)
+md <- median(nonavalue1$steps)
+text(x=15000, y=5.5, paste0("Median = ", round(md)))
+text(x=15000, y=6.5, paste0("Mean = ", round(m)))
+
+#Do these values differ from earlier histogram?  What is the impact of imputing(assigning) missing data?
+
+#print response
+cat("No the values do not differ much from the earlier histogram except the bars around mean counts.  Imputing missing data did increase number around mean but that is all")
+
+```
+
+#Q4:Are there differences in activity patterns between weekdays and weekends?  Use the weekends() function and dataset with filled in NA values.
+#Two parts see hash A and B
+```{r}
+
+#A Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+
+#figure out weekdays(), wdays() functions
+#weekdays(nonavalue1$date[1]  #outcome is "2012-10-01", plug into weekdays() and wday() functions
+library(lubridate) #wday()
+library(timeDate) #isWeekday()
+val <- weekdays(nonavalue1$date[1], abbr = TRUE)  #outcome is "Mon"
+val2 <- wday(nonavalue1$date[1], abbr = TRUE)     #outcome is "2"
+val3 <- wday(nonavalue1$date[1], label = TRUE, abbr = FALSE)     #outcome is "Monday"
+val4 <- isWeekday(nonavalue1$date[1]) #outcome 'TRUE'
+
+#try 1, too much work
+#use new dataframe 'ww', add var, make factor, put factor levels in new var
+#ww <- nonavalue1 %>% mutate(weekday = wday(nonavalue1$date, label=TRUE))
+#factor(ww$weekday, c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+#l <- levels(ww$weekday) #seven
+#new var with 2 levels "weekday" and "weekend"
+#i <- as.integer(1)
+#n <- nrow(ww) #17568 rows
+##'dataset' dataframe variable to be changed outside for loop
+#for (i in 1:n) {  #loop through rows in 'ww' dataframe
+#l <- ??? #test for weekend
+#  if(l == TRUE){  #test logical result saved in var 'l'
+#    #code #set as weekend factor level
+#  }
+#}
+
+#try 2 easy, 2 factor variable 'logical' created
+ww2 <- nonavalue %>% mutate(logical = isWeekday(date))
+ww2$logical <- as.factor(ww2$logical)
+library(forcats)
+ww2 <- mutate(ww2, logical = fct_recode(logical, "Weekday" = "TRUE"))
+ww2 <- mutate(ww2, logical = fct_recode(logical, "Weekend" = "FALSE"))
+ 
+#B Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+
+#average steps per day separated by Weekend OR Weekday, needs to be...
+#average steps per interval for Weekend AND Weekday
+
+#suppress warnings
+suppressWarnings({
+#create new dataframe w/average steps by interval but also for weekday/weekend so expand group_by so logical listed
+nonavalue3 <- ww2 %>% group_by(interval, logical) %>% summarise(sum(steps))
+names(nonavalue3)[3] <- "steps" #get var name changed
+
+#plot, have to print ggplot() with print()
+p1 <- ggplot(data = nonavalue3, aes(interval, steps)) +
+  geom_line(color = "Yellow", size = 1) +
+  geom_point(color="Black") + 
+  labs(title = "Steps by Weekend or Weekday",
+       subtitle = "time interval average across days",
+       y = "Number of steps", x = "Interval") + facet_wrap(~ logical, ncol = 1)
+print(p1)
+})
+
+```
